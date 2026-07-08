@@ -1,0 +1,81 @@
+name: daily-compass
+
+on:
+  schedule:
+    # 18:00 Asia/Taipei (UTC+8) = 10:00 UTC — after the TW close
+    - cron: "0 10 * * 1-5"
+    # after the US close (16:00 ET + settle) = 21:30 UTC
+    - cron: "30 21 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      market:
+        description: "Market to scan"
+        required: true
+        default: "us"
+        type: choice
+        options: [tw, us]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-compass-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  compass:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pick market
+        id: market
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "market=${{ inputs.market }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "0 10 * * 1-5" ]; then
+            echo "market=tw" >> "$GITHUB_OUTPUT"
+          else
+            echo "market=us" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: batch/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r batch/requirements.txt
+
+      - name: Run compass batch
+        working-directory: batch
+        run: python -m compass.run --market "${{ steps.market.outputs.market }}"
+
+      - name: Commit reports
+        env:
+          MARKET: ${{ steps.market.outputs.market }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          DATE="$(date -u +%F)"
+          git add reports/
+          if git diff --cached --quiet; then
+            echo "no report changes to commit"
+            exit 0
+          fi
+          git commit -m "chore(reports): daily compass ${DATE} ${MARKET} [skip ci]"
+          # pull-rebase-retry loop: another run may have pushed meanwhile
+          for attempt in 1 2 3 4 5; do
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+            echo "push failed (attempt ${attempt}), rebasing and retrying..."
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+            sleep $((attempt * 5))
+          done
+          echo "giving up after 5 push attempts" >&2
+          exit 1
