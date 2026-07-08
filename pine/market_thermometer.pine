@@ -1,11 +1,13 @@
 //@version=6
 // 市場溫度計 Market Thermometer — 馬克斯鐘擺 × 科斯托蘭尼雞蛋
 // 用法：開「指數」圖表（TWSE:TAIEX、SP:SPX、NASDAQ:NDX…，日線）再掛上本指標。
-//   鐘擺 0 = 極度悲觀 … 100 = 極度樂觀，為五個分項的平均（缺項自動略過）：
-//   1 趨勢熱度、2 動能熱度、3 52週區間位置、4 市場寬度（外部符號）、5 波動/恐慌
+//   鐘擺 0 = 極度悲觀 … 100 = 極度樂觀，為各分項的加權平均（缺項自動略過，權重可調）：
+//   基本分項：1 趨勢熱度、2 動能熱度、3 52週區間位置、4 市場寬度200MA、5 波動/恐慌
+//   進階分項（美股市場內部數據，非美元指數自動停用）：
+//     6 Put/Call 比（USI:PC）、7 新高−新低（INDEX:HIGN−LOWN）、8 快寬度50MA（INDEX:S5FI）
 //   分項5 在美股預設用 VIX 三重讀法（絕對區間 × 自身百分位 × VIX/VIX3M 期限結構），
 //   非美股（無 VIX 對應）自動退回自身已實現波動百分位。
-//   美股寬度符號現成可用（INDEX:S5TH = S&P500 站上 200MA 比例）；
+//   另偵測價格與溫度的背離：價創新高而溫度未跟上（負背離）／價創新低而溫度已回升（正背離）。
 //   台股 TradingView 無寬度資料 → 關閉寬度分項，完整版由 repo 的 batch/ 每日自算。
 // 這是情境參考，不是買賣訊號。
 indicator("市場溫度計 Market Thermometer — 鐘擺 × 雞蛋", "市場溫度計", overlay = false)
@@ -19,7 +21,24 @@ vixSym     = input.symbol("CBOE:VIX", "VIX 符號", group = grp)
 vix3mSym   = input.symbol("CBOE:VIX3M", "VIX3M 符號（期限結構用）", group = grp)
 lookback   = input.int(1260, "百分位回看期（交易日，約 5 年）", minval = 252, group = grp)
 
-// ── 分項 1–4（各 0–100）─────────────────────────────────────
+grpA = "進階分項（美股市場內部數據）"
+useAdv   = input.bool(true, "啟用進階分項（非美元指數自動停用）", group = grpA)
+pcSym    = input.symbol("USI:PC",    "Put/Call 比符號", group = grpA)
+hignSym  = input.symbol("INDEX:HIGN", "新高家數（NYSE）", group = grpA)
+lownSym  = input.symbol("INDEX:LOWN", "新低家數（NYSE）", group = grpA)
+fastSym  = input.symbol("INDEX:S5FI", "快寬度（% 站上 50MA）", group = grpA)
+
+grpW = "權重（0 = 停用該分項）"
+w1 = input.float(1.0, "1 趨勢熱度",   minval = 0, step = 0.25, group = grpW)
+w2 = input.float(1.0, "2 動能熱度",   minval = 0, step = 0.25, group = grpW)
+w3 = input.float(1.0, "3 區間位置",   minval = 0, step = 0.25, group = grpW)
+w4 = input.float(1.0, "4 市場寬度",   minval = 0, step = 0.25, group = grpW)
+w5 = input.float(1.0, "5 波動恐慌",   minval = 0, step = 0.25, group = grpW)
+w6 = input.float(1.0, "6 Put/Call",  minval = 0, step = 0.25, group = grpW)
+w7 = input.float(1.0, "7 新高−新低", minval = 0, step = 0.25, group = grpW)
+w8 = input.float(1.0, "8 快寬度50",  minval = 0, step = 0.25, group = grpW)
+
+// ── 基本分項 1–4（各 0–100）─────────────────────────────────
 sma200 = ta.sma(close, 200)
 dist200 = (close / sma200 - 1) * 100
 sTrend  = ta.percentrank(dist200, lookback)              // 1 趨勢熱度
@@ -51,11 +70,11 @@ f_tsScore(r) =>
     r <= 0.80 ? 95 : r <= 0.90 ? f_seg(r, 0.80, 95, 0.90, 75) : r <= 1.00 ? f_seg(r, 0.90, 75, 1.00, 35) :
          r <= 1.15 ? f_seg(r, 1.00, 35, 1.15, 5) : 0
 
-prVix    = ta.percentrank(vix, lookback)
-tsRatio  = not na(vix) and not na(vix3m) and vix3m > 0 ? vix / vix3m : na
-vLevel   = na(vix) ? na : f_vixLevel(vix)
-vPct     = na(prVix) ? na : 100 - prVix
-vTs      = na(tsRatio) ? na : f_tsScore(tsRatio)
+prVix   = ta.percentrank(vix, lookback)
+tsRatio = not na(vix) and not na(vix3m) and vix3m > 0 ? vix / vix3m : na
+vLevel  = na(vix) ? na : f_vixLevel(vix)
+vPct    = na(prVix) ? na : 100 - prVix
+vTs     = na(tsRatio) ? na : f_tsScore(tsRatio)
 
 f_add(acc, cnt, v) =>
     if na(v)
@@ -72,13 +91,50 @@ rv   = ta.stdev(ta.change(math.log(close)), 21) * math.sqrt(252) * 100
 prRv = ta.percentrank(rv, lookback)
 sVol = useVixEff and not na(vixFear) ? vixFear : 100 - prRv   // 5 波動/恐慌
 
-// ── 鐘擺 = 可得分項平均 ─────────────────────────────────────
-[a1, n1] = f_add(0.0, 0, sTrend)
-[a2, n2] = f_add(a1, n1, sMom)
-[a3, n3] = f_add(a2, n2, sRange)
-[a4, n4] = f_add(a3, n3, sBreadth)
-[a5, n5] = f_add(a4, n4, sVol)
-pendulum = n5 > 0 ? a5 / n5 : na
+// ── 進階分項 6–8（美股市場內部數據；非美元指數自動停用）──────
+useAdvEff = useAdv and syminfo.currency == "USD"
+pcRaw   = request.security(pcSym,   timeframe.period, close, ignore_invalid_symbol = true)
+hignRaw = request.security(hignSym, timeframe.period, close, ignore_invalid_symbol = true)
+lownRaw = request.security(lownSym, timeframe.period, close, ignore_invalid_symbol = true)
+fastRaw = request.security(fastSym, timeframe.period, close, ignore_invalid_symbol = true)
+
+// 6 Put/Call：比值高 = 買保護 = 恐懼 = 低分。日資料雜訊大 → 10 日平滑後取百分位反轉。
+pcSmooth = ta.sma(pcRaw, 10)
+prPc     = ta.percentrank(pcSmooth, lookback)
+sPc      = useAdvEff and not na(prPc) ? 100 - prPc : na
+// 7 新高−新低：淨新高多 = 樂觀。10 日平滑後取百分位。
+nhnl     = hignRaw - lownRaw
+nhnlSm   = ta.sma(nhnl, 10)
+prNhnl   = ta.percentrank(nhnlSm, lookback)
+sNhnl    = useAdvEff and not na(prNhnl) ? prNhnl : na
+// 8 快寬度：% 站上 50MA，本身即 0–100，轉折比 200MA 寬度更早。
+sFast    = useAdvEff ? fastRaw : na
+
+// ── 鐘擺 = 可得分項的加權平均 ────────────────────────────────
+f_addW(acc, wsum, v, w) =>
+    if na(v) or w <= 0
+        [acc, wsum]
+    else
+        [acc + v * w, wsum + w]
+
+[p1a, p1w] = f_addW(0.0, 0.0, sTrend,   w1)
+[p2a, p2w] = f_addW(p1a, p1w, sMom,     w2)
+[p3a, p3w] = f_addW(p2a, p2w, sRange,   w3)
+[p4a, p4w] = f_addW(p3a, p3w, sBreadth, w4)
+[p5a, p5w] = f_addW(p4a, p4w, sVol,     w5)
+[p6a, p6w] = f_addW(p5a, p5w, sPc,      w6)
+[p7a, p7w] = f_addW(p6a, p6w, sNhnl,    w7)
+[p8a, p8w] = f_addW(p7a, p7w, sFast,    w8)
+pendulum = p8w > 0 ? p8a / p8w : na
+
+// ── 背離偵測：價與溫度不同調 ─────────────────────────────────
+// 負背離：價創 126 日新高，但鐘擺離自己 126 日高點 ≥ 10 分（A3 過熱的典型徵兆）
+// 正背離：價創 126 日新低，但鐘擺已比自己 126 日低點回升 ≥ 10 分（B3 過賣後的築底徵兆）
+pendHi126 = ta.highest(pendulum, 126)
+pendLo126 = ta.lowest(pendulum, 126)
+negDiv = not na(pendulum) and not na(pendHi126) and close >= ta.highest(close, 126)[1] and pendulum <= pendHi126 - 10
+posDiv = not na(pendulum) and not na(pendLo126) and close <= ta.lowest(close, 126)[1] and pendulum >= pendLo126 + 10
+divTxt = negDiv ? "負背離：價新高、溫度未跟上" : posDiv ? "正背離：價新低、溫度已回升" : "無"
 
 // ── 鐘擺文字、VIX 區間、科斯托蘭尼雞蛋階段 ───────────────────
 moodTxt = na(pendulum) ? "資料不足" :
@@ -103,13 +159,18 @@ pColor = na(pendulum) ? color.gray :
      pendulum >= 80 ? color.red : pendulum >= 60 ? color.orange :
      pendulum >= 40 ? color.yellow : pendulum >= 20 ? color.teal : color.aqua
 plot(pendulum, "馬克斯鐘擺 0–100", color = pColor, linewidth = 2)
-plot(sTrend,   "分項1 趨勢熱度",  display = display.data_window)
-plot(sMom,     "分項2 動能熱度",  display = display.data_window)
-plot(sRange,   "分項3 區間位置",  display = display.data_window)
-plot(sBreadth, "分項4 市場寬度",  display = display.data_window)
-plot(sVol,     "分項5 波動恐慌",  display = display.data_window)
-plot(vix,      "VIX",             display = display.data_window)
-plot(tsRatio,  "VIX/VIX3M",       display = display.data_window)
+plot(sTrend,   "分項1 趨勢熱度",   display = display.data_window)
+plot(sMom,     "分項2 動能熱度",   display = display.data_window)
+plot(sRange,   "分項3 區間位置",   display = display.data_window)
+plot(sBreadth, "分項4 市場寬度",   display = display.data_window)
+plot(sVol,     "分項5 波動恐慌",   display = display.data_window)
+plot(sPc,      "分項6 Put/Call",  display = display.data_window)
+plot(sNhnl,    "分項7 新高新低",   display = display.data_window)
+plot(sFast,    "分項8 快寬度50",   display = display.data_window)
+plot(vix,      "VIX",              display = display.data_window)
+plot(tsRatio,  "VIX/VIX3M",        display = display.data_window)
+plotshape(negDiv, "負背離", style = shape.triangledown, location = location.top,    color = color.new(color.red, 0),  size = size.tiny)
+plotshape(posDiv, "正背離", style = shape.triangleup,   location = location.bottom, color = color.new(color.aqua, 0), size = size.tiny)
 hline(80, "極度樂觀", color = color.new(color.red, 50),    linestyle = hline.style_dotted)
 hline(60, "樂觀",     color = color.new(color.orange, 60), linestyle = hline.style_dotted)
 hline(40, "中性",     color = color.new(color.gray, 60),   linestyle = hline.style_dotted)
@@ -120,20 +181,32 @@ f_cell(tb, r, k, v, vc, tip) =>
     table.cell(tb, 0, r, k, text_color = color.gray, text_halign = text.align_left, text_size = size.small, tooltip = tip)
     table.cell(tb, 1, r, v, text_color = vc, text_halign = text.align_right, text_size = size.small)
 
+f_score(v) =>
+    na(v) ? "–" : str.tostring(v, "#")
+
 if barstate.islast
-    var table tb = table.new(position.top_right, 2, 11, bgcolor = color.new(color.black, 15), border_width = 1, border_color = color.new(color.gray, 60))
+    var table tb = table.new(position.top_right, 2, 14, bgcolor = color.new(color.black, 15), border_width = 1, border_color = color.new(color.gray, 60))
     table.cell(tb, 0, 0, "市場溫度計｜" + syminfo.ticker, text_color = color.new(color.aqua, 0), text_halign = text.align_left, text_size = size.small)
     table.cell(tb, 1, 0, na(pendulum) ? "–" : str.tostring(pendulum, "#.#"), text_color = pColor, text_halign = text.align_right, text_size = size.normal)
-    f_cell(tb, 1, "鐘擺位置", moodTxt, pColor, "0 = 極度悲觀 … 100 = 極度樂觀")
+    f_cell(tb, 1, "鐘擺位置", moodTxt, pColor, "0 = 極度悲觀 … 100 = 極度樂觀（各分項加權平均）")
     f_cell(tb, 2, "雞蛋階段", eggTxt, pColor, "由鐘擺分數 × 200MA 趨勢方向分類")
-    f_cell(tb, 3, "1 趨勢熱度", na(sTrend) ? "–" : str.tostring(sTrend, "#"), color.silver, "指數距 200MA 距離的 5 年百分位")
-    f_cell(tb, 4, "2 動能熱度", na(sMom) ? "–" : str.tostring(sMom, "#"), color.silver, "126 日報酬的 5 年百分位")
-    f_cell(tb, 5, "3 區間位置", na(sRange) ? "–" : str.tostring(sRange, "#"), color.silver, "52 週高低區間位置")
-    f_cell(tb, 6, "4 市場寬度", na(sBreadth) ? (useBreadth ? "無資料" : "關閉") : str.tostring(sBreadth, "#"), color.silver, "成分股站上 200MA 比例")
-    f_cell(tb, 7, "5 波動恐慌", na(sVol) ? "–" : str.tostring(sVol, "#") + (useVixEff and not na(vixFear) ? "（VIX）" : "（已實現波動）"), color.silver,
+    f_cell(tb, 3, "1 趨勢熱度", f_score(sTrend), color.silver, "指數距 200MA 距離的 5 年百分位")
+    f_cell(tb, 4, "2 動能熱度", f_score(sMom), color.silver, "126 日報酬的 5 年百分位")
+    f_cell(tb, 5, "3 區間位置", f_score(sRange), color.silver, "52 週高低區間位置")
+    f_cell(tb, 6, "4 市場寬度", na(sBreadth) ? (useBreadth ? "無資料" : "關閉") : f_score(sBreadth), color.silver, "成分股站上 200MA 比例")
+    f_cell(tb, 7, "5 波動恐慌", f_score(sVol) + (useVixEff and not na(vixFear) ? "（VIX）" : "（已實現波動）"), color.silver,
          "VIX 模式 = 絕對區間 × 自身百分位 × 期限結構 三者平均")
     if useVixEff and not na(vix)
         f_cell(tb, 8, "VIX " + str.tostring(vix, "#.#") + (na(tsRatio) ? "" : "｜/3M " + str.tostring(tsRatio, "#.##")), vixZone,
              vix >= 25 ? color.new(color.aqua, 0) : vix < 15 ? color.new(color.orange, 0) : color.silver, vixTip)
-    table.cell(tb, 0, 10, "情境參考，非買賣訊號", text_color = color.new(color.gray, 30), text_halign = text.align_left, text_size = size.tiny)
-    table.cell(tb, 1, 10, "", text_size = size.tiny)
+    if useAdvEff
+        f_cell(tb, 9,  "6 Put/Call",  f_score(sPc) + (na(pcSmooth) ? "" : "（" + str.tostring(pcSmooth, "#.##") + "）"), color.silver,
+             "10 日平滑 Put/Call 比的百分位反轉：比值高 = 買保護 = 恐懼 = 低分")
+        f_cell(tb, 10, "7 新高−新低", f_score(sNhnl) + (na(nhnlSm) ? "" : "（" + str.tostring(nhnlSm, "#") + "）"), color.silver,
+             "NYSE 新高減新低（10 日平滑）的百分位：淨新高多 = 樂觀")
+        f_cell(tb, 11, "8 快寬度50",  f_score(sFast), color.silver,
+             "% 站上 50MA——轉折比 200MA 寬度更早，適合抓雞蛋階段切換")
+    f_cell(tb, 12, "背離", divTxt, negDiv ? color.new(color.red, 0) : posDiv ? color.new(color.aqua, 0) : color.silver,
+         "價創 126 日新高但溫度落後 ≥10 分 = 負背離（過熱徵兆）；價創新低但溫度回升 ≥10 分 = 正背離（築底徵兆）")
+    table.cell(tb, 0, 13, "情境參考，非買賣訊號", text_color = color.new(color.gray, 30), text_halign = text.align_left, text_size = size.tiny)
+    table.cell(tb, 1, 13, "", text_size = size.tiny)
