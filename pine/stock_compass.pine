@@ -1,0 +1,346 @@
+//@version=6
+// 選股羅盤 Stock Compass — 八大師評分
+// 同一支腳本兩用：
+//   1. 圖上記分板：開任何個股（日線），右上表格顯示八個模型的通過條數與逐條明細
+//   2. Pine Screener 引擎：把本指標加入最愛 → Pine Screener 選擇本指標 → 掃 watchlist，
+//      以「XX %」欄位排序即得該模型排行（真正的全市場排名與每日批次見 repo 的 batch/）
+// 準則定義與 docs/DESIGN.md §3 完全一致；資料缺漏（na）記為不通過並以「–」標示。
+// 所有數字都是研究參考，不是買賣訊號。
+indicator("選股羅盤 Stock Compass — 八大師評分", "選股羅盤", overlay = false)
+
+// ─────────────────────────── 輸入 ───────────────────────────
+grpG = "一般"
+benchAuto  = input.bool(true, "自動選基準指數（TWD→TAIEX，其他→SPX）", group = grpG)
+benchInput = input.symbol("SP:SPX", "基準指數（關閉自動時使用）", group = grpG)
+showDetail = input.bool(true, "記分板顯示逐條明細", group = grpG)
+tablePos   = input.string("右上", "記分板位置", options = ["右上", "右下", "左上", "左下"], group = grpG)
+
+grpT = "門檻（預設值 = DESIGN.md）"
+mcapMinB   = input.float(0.0,  "G1 最低市值（十億，0=自動：TWD 30 / 其他 2）", minval = 0, group = grpT)
+roeMin     = input.float(15.0, "B1 ROE ≥ %", group = grpT)
+gmMin      = input.float(40.0, "B2 毛利率 ≥ %", group = grpT)
+nmMin      = input.float(10.0, "B3 淨利率 ≥ %", group = grpT)
+pegMax     = input.float(1.0,  "L1 PEG ≤", group = grpT)
+eyMin      = input.float(8.0,  "M1 盈餘殖利率 EBIT/EV ≥ %", group = grpT)
+roicMin    = input.float(20.0, "M2 ROIC ≥ %", group = grpT)
+c1Min      = input.float(25.0, "C1 季 EPS YoY ≥ %", group = grpT)
+rsOutMin   = input.float(10.0, "C5 6個月贏過指數 ≥ 百分點", group = grpT)
+pbMaxS     = input.float(1.0,  "S1 P/B ≤", group = grpT)
+ddMin      = input.float(40.0, "P1 自十年高點回檔 ≥ %", group = grpT)
+
+// ─────────────────────────── 基礎資料 ───────────────────────────
+isTW  = syminfo.currency == "TWD"
+bench = benchAuto ? (isTW ? "TWSE:TAIEX" : "SP:SPX") : benchInput
+[idxC, idxS50, idxS200] = request.security(bench, timeframe.period, [close, ta.sma(close, 50), ta.sma(close, 200)])
+
+// 財務欄位（皆為 TradingView request.financial 標準 ID）
+shares  = request.financial(syminfo.tickerid, "TOTAL_SHARES_OUTSTANDING",    "FQ",  ignore_invalid_symbol = true)
+curRat  = request.financial(syminfo.tickerid, "CURRENT_RATIO",               "FQ",  ignore_invalid_symbol = true)
+ltDebt  = request.financial(syminfo.tickerid, "LONG_TERM_DEBT",              "FQ",  ignore_invalid_symbol = true)
+curAst  = request.financial(syminfo.tickerid, "TOTAL_CURRENT_ASSETS",        "FQ",  ignore_invalid_symbol = true)
+curLia  = request.financial(syminfo.tickerid, "TOTAL_CURRENT_LIABILITIES",   "FQ",  ignore_invalid_symbol = true)
+epsFY   = request.financial(syminfo.tickerid, "EARNINGS_PER_SHARE_BASIC",    "FY",  ignore_invalid_symbol = true)
+dpsFY   = request.financial(syminfo.tickerid, "DPS_COMMON_STOCK_PRIM_ISSUE", "FY",  ignore_invalid_symbol = true)
+epsTTM  = request.financial(syminfo.tickerid, "EARNINGS_PER_SHARE_DILUTED",  "TTM", ignore_invalid_symbol = true)
+epsFQ   = request.financial(syminfo.tickerid, "EARNINGS_PER_SHARE_DILUTED",  "FQ",  ignore_invalid_symbol = true)
+bvps    = request.financial(syminfo.tickerid, "BOOK_VALUE_PER_SHARE",        "FQ",  ignore_invalid_symbol = true)
+roe     = request.financial(syminfo.tickerid, "RETURN_ON_EQUITY",            "FY",  ignore_invalid_symbol = true)
+gm      = request.financial(syminfo.tickerid, "GROSS_MARGIN",                "TTM", ignore_invalid_symbol = true)
+nm      = request.financial(syminfo.tickerid, "NET_MARGIN",                  "TTM", ignore_invalid_symbol = true)
+de      = request.financial(syminfo.tickerid, "DEBT_TO_EQUITY",              "FQ",  ignore_invalid_symbol = true)
+fcfFY   = request.financial(syminfo.tickerid, "FREE_CASH_FLOW",              "FY",  ignore_invalid_symbol = true)
+fcfTTM  = request.financial(syminfo.tickerid, "FREE_CASH_FLOW",              "TTM", ignore_invalid_symbol = true)
+omFY    = request.financial(syminfo.tickerid, "OPERATING_MARGIN",            "FY",  ignore_invalid_symbol = true)
+roa     = request.financial(syminfo.tickerid, "RETURN_ON_ASSETS",            "FY",  ignore_invalid_symbol = true)
+revFY   = request.financial(syminfo.tickerid, "TOTAL_REVENUE",               "FY",  ignore_invalid_symbol = true)
+ebitTTM = request.financial(syminfo.tickerid, "OPER_INCOME",                 "TTM", ignore_invalid_symbol = true)
+ev      = request.financial(syminfo.tickerid, "ENTERPRISE_VALUE",            "FQ",  ignore_invalid_symbol = true)
+roic    = request.financial(syminfo.tickerid, "RETURN_ON_INVESTED_CAPITAL",  "FY",  ignore_invalid_symbol = true)
+equity  = request.financial(syminfo.tickerid, "TOTAL_EQUITY",                "FY",  ignore_invalid_symbol = true)
+
+// 年度／季度歷史：以「數值改變」偵測新一期資料（連續兩期完全相同會被視為一期，屬可接受近似）
+f_track(arr, v, maxN) =>
+    if not na(v) and (array.size(arr) == 0 or v != array.get(arr, 0))
+        array.unshift(arr, v)
+        if array.size(arr) > maxN
+            array.pop(arr)
+
+var epsArr  = array.new<float>()
+var dpsArr  = array.new<float>()
+var fcfArr  = array.new<float>()
+var omArr   = array.new<float>()
+var eqArr   = array.new<float>()
+var revArr  = array.new<float>()
+var qepsArr = array.new<float>()
+f_track(epsArr,  epsFY,  12)
+f_track(dpsArr,  dpsFY,  12)
+f_track(fcfArr,  fcfFY,   6)
+f_track(omArr,   omFY,    6)
+f_track(eqArr,   equity,  6)
+f_track(revArr,  revFY,   4)
+f_track(qepsArr, epsFQ,  10)
+
+// 前 i 筆是否全 > 0（樣本不足由呼叫端把關）
+f_allPos(arr, maxLook) =>
+    ok = true
+    n = array.size(arr)
+    if n > 0
+        for i = 0 to math.min(n, maxLook) - 1
+            ok := ok and array.get(arr, i) > 0
+    ok
+
+// 衍生數值
+mcap = not na(shares) ? close * shares : na
+pe   = not na(epsTTM) and epsTTM > 0 ? close / epsTTM : na
+pb   = not na(bvps) and bvps > 0 ? close / bvps : na
+var float peFF = na // 前值填補，供自身歷史百分位計算
+if not na(pe)
+    peFF := pe
+
+nEps = array.size(epsArr)
+// EPS 3 年 CAGR（%）：最新 FY 對 3 年前 FY
+epsCagr = nEps >= 4 and array.get(epsArr, 3) > 0 and array.get(epsArr, 0) > 0 ?
+     (math.pow(array.get(epsArr, 0) / array.get(epsArr, 3), 1.0 / 3.0) - 1) * 100 : na
+peg = not na(pe) and not na(epsCagr) and epsCagr > 0 ? pe / epsCagr : na
+
+// 價格結構
+sma50   = ta.sma(close, 50)
+sma150  = ta.sma(close, 150)
+sma200  = ta.sma(close, 200)
+hi252   = ta.highest(high, 252)
+lo252   = ta.lowest(low, 252)
+len3y   = math.max(252, math.min(756,  bar_index + 1))
+len10y  = math.max(252, math.min(2520, bar_index + 1))
+len5y   = math.max(252, math.min(1260, bar_index + 1))
+lo3y    = ta.lowest(low,  len3y)
+hi10y   = ta.highest(high, len10y)
+lo10y   = ta.lowest(low,  len10y)
+peMed5  = ta.percentile_nearest_rank(peFF, len5y, 50)
+peMed10 = ta.percentile_nearest_rank(peFF, len10y, 50)
+
+// 相對強度（對基準指數）
+ret6m    = close / close[126] - 1
+idxRet6m = idxC / idxC[126] - 1
+outperf  = (ret6m - idxRet6m) * 100      // 6 個月贏過指數幾個百分點
+rsLine   = close / idxC
+pctOffHi = (hi252 - close) / hi252 * 100 // 距 52 週高 %
+upVol50  = math.sum(close > close[1] ? volume : 0.0, 50)
+dnVol50  = math.sum(close < close[1] ? volume : 0.0, 50)
+
+// ─────────────────────────── 工具 ───────────────────────────
+f_mark(p, m) =>
+    m ? "–" : p ? "✓" : "✗"
+f_bar(pct) =>
+    filled = int(math.round(pct / 12.5))
+    str.repeat("█", filled) + str.repeat("░", 8 - filled)
+f_col(pct) =>
+    pct >= 75 ? color.new(color.green, 0) : pct >= 50 ? color.new(color.olive, 0) : pct >= 25 ? color.new(color.orange, 0) : color.new(color.gray, 0)
+f_pos(s) =>
+    s == "右上" ? position.top_right : s == "右下" ? position.bottom_right : s == "左上" ? position.top_left : position.bottom_left
+
+// ═══ 1. 葛拉漢 防禦型（7 條）═══
+mcapThr = mcapMinB > 0 ? mcapMinB * 1e9 : (isTW ? 30e9 : 2e9)
+wc  = curAst - curLia
+g1m = na(mcap)
+g1  = not g1m and mcap >= mcapThr
+g2m = na(curRat)
+g2  = not g2m and curRat >= 2.0
+g3m = na(ltDebt) or na(wc)
+g3  = not g3m and ltDebt <= wc
+g4m = nEps < 5
+g4  = not g4m and f_allPos(epsArr, 10)
+g5m = array.size(dpsArr) < 5
+g5  = not g5m and f_allPos(dpsArr, 10)
+gOldEps = nEps >= 4 ? array.get(epsArr, math.min(9, nEps - 1)) : na
+g6m = na(gOldEps)
+g6  = not g6m and gOldEps > 0 and array.get(epsArr, 0) >= gOldEps * 1.33
+g7m = na(pe) or na(pb)
+g7  = not g7m and pe * pb <= 22.5
+gScore = (g1?1:0)+(g2?1:0)+(g3?1:0)+(g4?1:0)+(g5?1:0)+(g6?1:0)+(g7?1:0)
+gNa    = (g1m?1:0)+(g2m?1:0)+(g3m?1:0)+(g4m?1:0)+(g5m?1:0)+(g6m?1:0)+(g7m?1:0)
+gPct   = 100.0 * gScore / 7
+gDet   = f_mark(g1,g1m)+f_mark(g2,g2m)+f_mark(g3,g3m)+f_mark(g4,g4m)+f_mark(g5,g5m)+f_mark(g6,g6m)+f_mark(g7,g7m)
+
+// ═══ 2. 巴菲特 護城河（7 條）═══
+b1m = na(roe)
+b1  = not b1m and roe >= roeMin
+b2m = na(gm)
+b2  = not b2m and gm >= gmMin
+b3m = na(nm)
+b3  = not b3m and nm >= nmMin
+b4m = na(de)
+b4  = not b4m and de <= 0.5
+b5m = array.size(fcfArr) < 3
+b5  = not b5m and array.get(fcfArr, 0) > 0 and array.get(fcfArr, 1) > 0 and array.get(fcfArr, 2) > 0
+nOm = array.size(omArr)
+b6m = nOm < 4
+b6  = not b6m and array.get(omArr, 0) >= array.get(omArr, math.min(3, nOm - 1)) * 0.9
+b7m = na(roa)
+b7  = not b7m and roa >= 7.0
+bScore = (b1?1:0)+(b2?1:0)+(b3?1:0)+(b4?1:0)+(b5?1:0)+(b6?1:0)+(b7?1:0)
+bNa    = (b1m?1:0)+(b2m?1:0)+(b3m?1:0)+(b4m?1:0)+(b5m?1:0)+(b6m?1:0)+(b7m?1:0)
+bPct   = 100.0 * bScore / 7
+bDet   = f_mark(b1,b1m)+f_mark(b2,b2m)+f_mark(b3,b3m)+f_mark(b4,b4m)+f_mark(b5,b5m)+f_mark(b6,b6m)+f_mark(b7,b7m)
+
+// ═══ 3. 林區 PEG（5 條 + 成長分類）═══
+lynClass = na(epsCagr) ? "成長資料不足" : epsCagr < 10 ? "緩慢成長" : epsCagr <= 20 ? "穩健成長" : "快速成長"
+l1m = na(peg)
+l1  = not l1m and peg <= pegMax
+l2m = na(epsCagr)
+l2  = not l2m and epsCagr >= 10 and epsCagr <= 50
+l3m = na(de)
+l3  = not l3m and de <= 0.6
+l4m = na(pe) or na(peMed5)
+l4  = not l4m and pe < peMed5
+l5m = array.size(revArr) < 2
+l5  = not l5m and array.get(revArr, 0) > array.get(revArr, 1)
+lScore = (l1?1:0)+(l2?1:0)+(l3?1:0)+(l4?1:0)+(l5?1:0)
+lNa    = (l1m?1:0)+(l2m?1:0)+(l3m?1:0)+(l4m?1:0)+(l5m?1:0)
+lPct   = 100.0 * lScore / 5
+lDet   = f_mark(l1,l1m)+f_mark(l2,l2m)+f_mark(l3,l3m)+f_mark(l4,l4m)+f_mark(l5,l5m)
+
+// ═══ 4. 葛林布萊特 神奇公式（2 條門檻近似；真雙排名見 batch/）═══
+ey  = not na(ebitTTM) and not na(ev) and ev > 0 ? ebitTTM / ev * 100 : na
+m1m = na(ey)
+m1  = not m1m and ey >= eyMin
+m2m = na(roic)
+m2  = not m2m and roic >= roicMin
+mScore = (m1?1:0)+(m2?1:0)
+mNa    = (m1m?1:0)+(m2m?1:0)
+mPct   = 100.0 * mScore / 2
+mDet   = f_mark(m1,m1m)+f_mark(m2,m2m)
+
+// ═══ 5. 歐尼爾 CANSLIM（7 條；L、I 為近似）═══
+nQ = array.size(qepsArr)
+qYoY = nQ >= 5 and array.get(qepsArr, 4) != 0 ?
+     (array.get(qepsArr, 0) - array.get(qepsArr, 4)) / math.abs(array.get(qepsArr, 4)) * 100 : na
+c1m = na(qYoY)
+c1  = not c1m and qYoY >= c1Min
+c2m = na(epsCagr) and na(roe)
+c2  = not c2m and ((not na(epsCagr) and epsCagr >= 25) or (not na(roe) and roe >= 17))
+c3  = pctOffHi <= 15
+c4  = ta.sma(volume, 10) > ta.sma(volume, 50)
+c5m = na(outperf)
+c5  = not c5m and outperf >= rsOutMin
+c6  = dnVol50 == 0 or upVol50 / dnVol50 >= 1.0
+c7m = na(idxC)
+c7  = not c7m and idxC > idxS50 and idxC > idxS200
+cScore = (c1?1:0)+(c2?1:0)+(c3?1:0)+(c4?1:0)+(c5?1:0)+(c6?1:0)+(c7?1:0)
+cNa    = (c1m?1:0)+(c2m?1:0)+(c5m?1:0)+(c7m?1:0)
+cPct   = 100.0 * cScore / 7
+cDet   = f_mark(c1,c1m)+f_mark(c2,c2m)+f_mark(c3,false)+f_mark(c4,false)+f_mark(c5,c5m)+f_mark(c6,false)+f_mark(c7,c7m)
+
+// ═══ 6. 米奈爾維尼 趨勢樣板（8 條）═══
+t1 = close > sma150 and close > sma200
+t2 = sma150 > sma200
+t3 = sma200 > sma200[21]
+t4 = sma50 > sma150 and sma50 > sma200
+t5 = close > sma50
+t6 = close >= lo252 * 1.30
+t7 = pctOffHi <= 25
+t8m = na(rsLine) or na(outperf)
+t8  = not t8m and rsLine > rsLine[65] and outperf >= 0
+tScore = (t1?1:0)+(t2?1:0)+(t3?1:0)+(t4?1:0)+(t5?1:0)+(t6?1:0)+(t7?1:0)+(t8?1:0)
+tNa    = t8m ? 1 : 0
+tPct   = 100.0 * tScore / 8
+tDet   = f_mark(t1,false)+f_mark(t2,false)+f_mark(t3,false)+f_mark(t4,false)+f_mark(t5,false)+f_mark(t6,false)+f_mark(t7,false)+f_mark(t8,t8m)
+
+// ═══ 7. 施洛斯 深度價值（6 條）═══
+s1m = na(pb)
+s1  = not s1m and pb <= pbMaxS
+s2m = na(de)
+s2  = not s2m and de <= 0.3
+s3  = close <= lo3y * 1.30
+nEq = array.size(eqArr)
+s4m = nEq < 3
+s4  = not s4m and array.get(eqArr, 0) >= array.get(eqArr, math.min(3, nEq - 1))
+s5m = na(dpsFY)
+s5  = not s5m and dpsFY > 0
+s6m = na(curRat)
+s6  = not s6m and curRat >= 1.5
+sScore = (s1?1:0)+(s2?1:0)+(s3?1:0)+(s4?1:0)+(s5?1:0)+(s6?1:0)
+sNa    = (s1m?1:0)+(s2m?1:0)+(s4m?1:0)+(s5m?1:0)+(s6m?1:0)
+sPct   = 100.0 * sScore / 6
+sDet   = f_mark(s1,s1m)+f_mark(s2,s2m)+f_mark(s3,false)+f_mark(s4,s4m)+f_mark(s5,s5m)+f_mark(s6,s6m)
+
+// ═══ 8. 坦伯頓 極端悲觀點（6 條）═══
+drawdown = (hi10y - close) / hi10y * 100
+rangePos = hi10y != lo10y ? (close - lo10y) / (hi10y - lo10y) * 100 : na
+bvpsOld  = bvps[1260]
+p1  = drawdown >= ddMin
+p2m = na(rangePos)
+p2  = not p2m and rangePos <= 20
+p3m = na(pe) or na(peMed10)
+p3  = not p3m and pe <= peMed10 * 0.7
+p4m = na(epsTTM) and na(fcfTTM)
+p4  = not p4m and ((not na(epsTTM) and epsTTM > 0) or (not na(fcfTTM) and fcfTTM > 0))
+p5m = na(bvps) or na(bvpsOld)
+p5  = not p5m and bvps >= bvpsOld * 0.8
+p6  = close >= lo252 * 1.05
+pScore = (p1?1:0)+(p2?1:0)+(p3?1:0)+(p4?1:0)+(p5?1:0)+(p6?1:0)
+pNa    = (p2m?1:0)+(p3m?1:0)+(p4m?1:0)+(p5m?1:0)
+pPct   = 100.0 * pScore / 6
+pDet   = f_mark(p1,false)+f_mark(p2,p2m)+f_mark(p3,p3m)+f_mark(p4,p4m)+f_mark(p5,p5m)+f_mark(p6,false)
+
+// ─────────────────────────── 彙總 ───────────────────────────
+composite = (gPct + bPct + lPct + mPct + cPct + tPct + sPct + pPct) / 8
+nStrong   = (gPct>=60?1:0)+(bPct>=60?1:0)+(lPct>=60?1:0)+(mPct>=60?1:0)+(cPct>=60?1:0)+(tPct>=60?1:0)+(sPct>=60?1:0)+(pPct>=60?1:0)
+
+// ─────────────── Pine Screener 欄位（plot 標題 = 欄名）───────────────
+plot(gPct,      "葛拉漢 防禦型 %",      display = display.data_window)
+plot(bPct,      "巴菲特 護城河 %",      display = display.data_window)
+plot(lPct,      "林區 PEG %",           display = display.data_window)
+plot(mPct,      "神奇公式(近似) %",     display = display.data_window)
+plot(cPct,      "CANSLIM %",            display = display.data_window)
+plot(tPct,      "米奈爾維尼 趨勢 %",    display = display.data_window)
+plot(sPct,      "施洛斯 深度價值 %",    display = display.data_window)
+plot(pPct,      "坦伯頓 悲觀點 %",      display = display.data_window)
+plot(composite, "綜合平均 %",           color = color.orange)
+plot(nStrong,   "通過模型數(≥60%)",     display = display.data_window)
+plot(peg,       "PEG",                  display = display.data_window)
+plot(ey,        "盈餘殖利率 EBIT/EV %", display = display.data_window)
+plot(roic,      "ROIC %",               display = display.data_window)
+plot(outperf,   "6月相對強度 pp",       display = display.data_window)
+plot(pctOffHi,  "距52週高 %",           display = display.data_window)
+plot(pb,        "P/B",                  display = display.data_window)
+hline(60, "強勢門檻 60%", color = color.gray, linestyle = hline.style_dotted)
+
+// ─────────────────────────── 記分板 ───────────────────────────
+var table tb = table.new(f_pos(tablePos), 5, 11, bgcolor = color.new(color.black, 15), border_width = 1, border_color = color.new(color.gray, 60))
+
+f_row(t, row, name, score, total, pct, naCnt, det, keyTxt, tip) =>
+    table.cell(t, 0, row, name, text_color = color.white, text_halign = text.align_left, text_size = size.small)
+    table.cell(t, 1, row, str.tostring(score) + "/" + str.tostring(total), text_color = f_col(pct), text_size = size.small)
+    table.cell(t, 2, row, f_bar(pct), text_color = f_col(pct), text_size = size.small)
+    table.cell(t, 3, row, showDetail ? det : "", text_color = color.silver, text_size = size.small, tooltip = tip)
+    table.cell(t, 4, row, keyTxt + (naCnt > 0 ? "｜缺" + str.tostring(naCnt) : ""), text_color = naCnt > 0 ? color.new(color.yellow, 20) : color.silver, text_halign = text.align_left, text_size = size.small)
+
+if barstate.islast
+    table.cell(tb, 0, 0, "選股羅盤｜" + syminfo.ticker, text_color = color.new(color.aqua, 0), text_halign = text.align_left, text_size = size.small)
+    table.cell(tb, 1, 0, "得分", text_color = color.gray, text_size = size.small)
+    table.cell(tb, 2, 0, "", text_size = size.small)
+    table.cell(tb, 3, 0, showDetail ? "逐條" : "", text_color = color.gray, text_size = size.small)
+    table.cell(tb, 4, 0, "關鍵值（– = 資料缺）", text_color = color.gray, text_halign = text.align_left, text_size = size.small)
+    f_row(tb, 1, "葛拉漢 防禦型",   gScore, 7, gPct, gNa, gDet, "P/E×P/B " + (na(pe) or na(pb) ? "–" : str.tostring(pe * pb, "#.#")),
+         "G1市值 G2流動比≥2 G3長債≤營運資金 G4盈餘穩定 G5股利紀錄 G6盈餘成長 G7 P/E×P/B≤22.5")
+    f_row(tb, 2, "巴菲特 護城河",   bScore, 7, bPct, bNa, bDet, "ROE " + (na(roe) ? "–" : str.tostring(roe, "#.#") + "%"),
+         "B1 ROE≥15% B2毛利≥40% B3淨利≥10% B4負債權益≤0.5 B5 FCF連3年正 B6營益率不弱 B7 ROA≥7%")
+    f_row(tb, 3, "林區｜" + lynClass, lScore, 5, lPct, lNa, lDet, "PEG " + (na(peg) ? "–" : str.tostring(peg, "#.##")),
+         "L1 PEG≤1 L2成長10–50% L3負債權益≤0.6 L4 P/E<5年中位 L5營收成長")
+    f_row(tb, 4, "神奇公式(近似)",  mScore, 2, mPct, mNa, mDet, "EY " + (na(ey) ? "–" : str.tostring(ey, "#.#") + "%") + "｜ROIC " + (na(roic) ? "–" : str.tostring(roic, "#.#") + "%"),
+         "M1 EBIT/EV≥8% M2 ROIC≥20%（真雙排名見批次報告）")
+    f_row(tb, 5, "歐尼爾 CANSLIM",  cScore, 7, cPct, cNa, cDet, "季EPS YoY " + (na(qYoY) ? "–" : str.tostring(qYoY, "#") + "%"),
+         "C季爆發 A年成長 N近新高 S量能 L相對強度(近似) I上漲量比(近似) M大盤方向")
+    f_row(tb, 6, "米奈爾維尼 趨勢", tScore, 8, tPct, tNa, tDet, "距52週高 " + str.tostring(pctOffHi, "#.#") + "%",
+         "T1價>150/200MA T2 150>200 T3 200MA上揚 T4 50>150/200 T5價>50MA T6高於52低30% T7距52高25%內 T8 RS強")
+    f_row(tb, 7, "施洛斯 深度價值", sScore, 6, sPct, sNa, sDet, "P/B " + (na(pb) ? "–" : str.tostring(pb, "#.##")),
+         "S1 P/B≤1 S2負債權益≤0.3 S3近3年低點 S4淨值未毀損 S5有配息 S6流動比≥1.5")
+    f_row(tb, 8, "坦伯頓 悲觀點",   pScore, 6, pPct, pNa, pDet, "回檔 " + str.tostring(drawdown, "#") + "%",
+         "P1自高點回檔≥40% P2十年區間低20% P3 P/E≤中位×0.7 P4還活著 P5淨值未崩 P6已止跌")
+    table.cell(tb, 0, 9, "綜合平均", text_color = color.new(color.aqua, 0), text_halign = text.align_left, text_size = size.small)
+    table.cell(tb, 1, 9, str.tostring(composite, "#.#") + "%", text_color = f_col(composite), text_size = size.small)
+    table.cell(tb, 2, 9, f_bar(composite), text_color = f_col(composite), text_size = size.small)
+    table.cell(tb, 3, 9, "強勢模型 " + str.tostring(nStrong) + "/8", text_color = color.silver, text_size = size.small)
+    table.cell(tb, 4, 9, "基準 " + bench, text_color = color.gray, text_halign = text.align_left, text_size = size.small)
+    table.cell(tb, 0, 10, "研究參考，非投資建議", text_color = color.new(color.gray, 30), text_halign = text.align_left, text_size = size.tiny)
+    table.cell(tb, 4, 10, "落差本身就是資訊", text_color = color.new(color.gray, 30), text_halign = text.align_left, text_size = size.tiny)

@@ -1,0 +1,92 @@
+//@version=6
+// 市場溫度計 Market Thermometer — 馬克斯鐘擺 × 科斯托蘭尼雞蛋
+// 用法：開「指數」圖表（TWSE:TAIEX、SP:SPX、NASDAQ:NDX…，日線）再掛上本指標。
+//   鐘擺 0 = 極度悲觀 … 100 = 極度樂觀，為五個分項的平均（缺項自動略過）：
+//   1 趨勢熱度、2 動能熱度、3 52週區間位置、4 市場寬度（外部符號）、5 波動自滿度
+//   美股寬度符號現成可用（INDEX:S5TH = S&P500 站上 200MA 比例）；
+//   台股 TradingView 無寬度資料 → 關閉寬度分項，完整版由 repo 的 batch/ 每日自算。
+// 這是情境參考，不是買賣訊號。
+indicator("市場溫度計 Market Thermometer — 鐘擺 × 雞蛋", "市場溫度計", overlay = false)
+
+grp = "資料來源"
+useBreadth = input.bool(true, "使用市場寬度符號（台股請關閉）", group = grp)
+breadthSym = input.symbol("INDEX:S5TH", "寬度符號（% 站上 200MA）", group = grp)
+useVix     = input.bool(false, "波動分項改用 VIX（預設用自身已實現波動）", group = grp)
+vixSym     = input.symbol("TVC:VIX", "VIX 符號", group = grp)
+lookback   = input.int(1260, "百分位回看期（交易日，約 5 年）", minval = 252, group = grp)
+
+// ── 分項（各 0–100）──────────────────────────────────────────
+sma200 = ta.sma(close, 200)
+dist200   = (close / sma200 - 1) * 100
+sTrend    = ta.percentrank(dist200, lookback)              // 1 趨勢熱度
+ret126    = close / close[126] - 1
+sMom      = ta.percentrank(ret126, lookback)               // 2 動能熱度
+hi252 = ta.highest(high, 252)
+lo252 = ta.lowest(low, 252)
+sRange    = hi252 != lo252 ? (close - lo252) / (hi252 - lo252) * 100 : na   // 3 區間位置
+breadthRaw = request.security(breadthSym, timeframe.period, close, ignore_invalid_symbol = true)
+sBreadth  = useBreadth ? breadthRaw : na                   // 4 市場寬度（本身即 0–100）
+rv        = ta.stdev(ta.change(math.log(close)), 21) * math.sqrt(252) * 100
+vixRaw    = request.security(vixSym, timeframe.period, close, ignore_invalid_symbol = true)
+prVix     = ta.percentrank(vixRaw, lookback)
+prRv      = ta.percentrank(rv, lookback)
+sVol      = useVix and not na(prVix) ? 100 - prVix : 100 - prRv   // 5 低波動 = 自滿
+
+// 鐘擺 = 可得分項平均
+f_add(acc, cnt, v) =>
+    if na(v)
+        [acc, cnt]
+    else
+        [acc + v, cnt + 1]
+[a1, n1] = f_add(0.0, 0, sTrend)
+[a2, n2] = f_add(a1, n1, sMom)
+[a3, n3] = f_add(a2, n2, sRange)
+[a4, n4] = f_add(a3, n3, sBreadth)
+[a5, n5] = f_add(a4, n4, sVol)
+pendulum = n5 > 0 ? a5 / n5 : na
+
+// ── 鐘擺文字與科斯托蘭尼雞蛋階段 ─────────────────────────────
+moodTxt = na(pendulum) ? "資料不足" :
+     pendulum >= 80 ? "極度樂觀" : pendulum >= 60 ? "樂觀" :
+     pendulum >= 40 ? "中性" : pendulum >= 20 ? "悲觀" : "極度悲觀"
+maUp  = sma200 > sma200[21]
+above = close > sma200
+eggTxt = na(pendulum) ? "資料不足" :
+     pendulum >= 80 ? "上升 A3 誇張（過熱）" :
+     pendulum >= 60 ? (above ? "上升 A2 相隨" : "下降 B1 修正（高檔轉弱）") :
+     pendulum >= 40 ? (above and maUp ? "上升 A1 修正（初升）" : "下降 B2 相隨") :
+     pendulum >= 20 ? "下降 B2 相隨（加速）" : "下降 B3 誇張（過賣）"
+
+// ── 繪圖 ─────────────────────────────────────────────────────
+pColor = na(pendulum) ? color.gray :
+     pendulum >= 80 ? color.red : pendulum >= 60 ? color.orange :
+     pendulum >= 40 ? color.yellow : pendulum >= 20 ? color.teal : color.aqua
+plot(pendulum, "馬克斯鐘擺 0–100", color = pColor, linewidth = 2)
+plot(sTrend,   "分項1 趨勢熱度",  display = display.data_window)
+plot(sMom,     "分項2 動能熱度",  display = display.data_window)
+plot(sRange,   "分項3 區間位置",  display = display.data_window)
+plot(sBreadth, "分項4 市場寬度",  display = display.data_window)
+plot(sVol,     "分項5 波動自滿",  display = display.data_window)
+hline(80, "極度樂觀", color = color.new(color.red, 50),  linestyle = hline.style_dotted)
+hline(60, "樂觀",     color = color.new(color.orange, 60), linestyle = hline.style_dotted)
+hline(40, "中性",     color = color.new(color.gray, 60), linestyle = hline.style_dotted)
+hline(20, "極度悲觀", color = color.new(color.aqua, 50), linestyle = hline.style_dotted)
+bgcolor(na(pendulum) ? na : pendulum >= 80 ? color.new(color.red, 92) : pendulum <= 20 ? color.new(color.aqua, 92) : na)
+
+f_cell(tb, r, k, v, vc) =>
+    table.cell(tb, 0, r, k, text_color = color.gray,  text_halign = text.align_left, text_size = size.small)
+    table.cell(tb, 1, r, v, text_color = vc, text_halign = text.align_right, text_size = size.small)
+
+if barstate.islast
+    var table tb = table.new(position.top_right, 2, 9, bgcolor = color.new(color.black, 15), border_width = 1, border_color = color.new(color.gray, 60))
+    table.cell(tb, 0, 0, "市場溫度計｜" + syminfo.ticker, text_color = color.new(color.aqua, 0), text_halign = text.align_left, text_size = size.small)
+    table.cell(tb, 1, 0, na(pendulum) ? "–" : str.tostring(pendulum, "#.#"), text_color = pColor, text_halign = text.align_right, text_size = size.normal)
+    f_cell(tb, 1, "鐘擺位置", moodTxt, pColor)
+    f_cell(tb, 2, "雞蛋階段", eggTxt, pColor)
+    f_cell(tb, 3, "1 趨勢熱度", na(sTrend) ? "–" : str.tostring(sTrend, "#"), color.silver)
+    f_cell(tb, 4, "2 動能熱度", na(sMom) ? "–" : str.tostring(sMom, "#"), color.silver)
+    f_cell(tb, 5, "3 區間位置", na(sRange) ? "–" : str.tostring(sRange, "#"), color.silver)
+    f_cell(tb, 6, "4 市場寬度", na(sBreadth) ? (useBreadth ? "無資料" : "關閉") : str.tostring(sBreadth, "#"), color.silver)
+    f_cell(tb, 7, "5 波動自滿", na(sVol) ? "–" : str.tostring(sVol, "#"), color.silver)
+    table.cell(tb, 0, 8, "情境參考，非買賣訊號", text_color = color.new(color.gray, 30), text_halign = text.align_left, text_size = size.tiny)
+    table.cell(tb, 1, 8, "", text_size = size.tiny)
