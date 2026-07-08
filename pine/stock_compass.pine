@@ -6,7 +6,10 @@
 //      以「XX %」欄位排序即得該模型排行（真正的全市場排名與每日批次見 repo 的 batch/）
 // 準則定義與 docs/DESIGN.md §3 完全一致；資料缺漏（na）記為不通過並以「–」標示。
 // 所有數字都是研究參考，不是買賣訊號。
-indicator("選股羅盤 Stock Compass — 八大師評分", "選股羅盤", overlay = false)
+// max_bars_back：本指標的最深回看為 2520 根（十年高低、P/E 十年中位數）加 bvps[1260]，
+// 且部分回看長度隨可得歷史自適應（bar_index + 1），Pine 無法自動推算緩衝區大小，
+// 必須明確宣告，否則會出現「historical offset beyond buffer's limit」錯誤。
+indicator("選股羅盤 Stock Compass — 八大師評分", "選股羅盤", overlay = false, max_bars_back = 2600)
 
 // ─────────────────────────── 輸入 ───────────────────────────
 grpG = "一般"
