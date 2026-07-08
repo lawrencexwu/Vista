@@ -1,0 +1,11 @@
+# ETF 專區（美股）— yfinance ticker|TradingView symbol|名稱
+VTI|AMEX:VTI|Vanguard Total Stock Market
+VOO|AMEX:VOO|Vanguard S&P 500
+SPY|AMEX:SPY|SPDR S&P 500
+QQQ|NASDAQ:QQQ|Invesco QQQ (Nasdaq 100)
+VT|AMEX:VT|Vanguard Total World
+SCHD|AMEX:SCHD|Schwab US Dividend Equity
+VTV|AMEX:VTV|Vanguard Value
+VUG|AMEX:VUG|Vanguard Growth
+IWM|AMEX:IWM|iShares Russell 2000
+DIA|AMEX:DIA|SPDR Dow Jones

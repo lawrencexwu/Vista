@@ -185,6 +185,9 @@ TradingView 上可用的機制有三種，各有硬限制：
   - `watchlists/*.txt`：TradingView 可直接匯入的清單（`TWSE:2330` 格式，逐行）
 - 排程：GitHub Actions，台股收盤後與美股收盤後各跑一次，結果 commit 回 repo
 - 神奇公式與 RS Rating 在批次做**真排名／真百分位**
+- **ETF 專區（向柏格致敬）**：報告附各市場精選 ETF 的趨勢快照（收盤、6月/1年報酬、
+  距 200MA、52 週位置），不打分不排名——主動選股的對手組合永遠是「買下整個草堆」；
+  清單在 `batch/compass/data/etf_{tw,us}.txt`，可自行增減
 
 ---
 

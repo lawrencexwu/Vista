@@ -100,11 +100,32 @@ def _model_section(model: str, top: list[dict], all_results: list[dict]) -> list
     return lines
 
 
+def _etf_section(etf_rows: list[dict]) -> list[str]:
+    lines = ["## ETF 專區（向柏格致敬）", ""]
+    lines.append("主動選股的對手組合永遠是「買下整個草堆」。以下為趨勢快照，不打分、不排名：")
+    lines.append("")
+    lines.append("| 代號 | 名稱 | 收盤 | 6月 % | 1年 % | 距200MA % | 52週位置 % |")
+    lines.append("|---|---|---:|---:|---:|---:|---:|")
+
+    def fmt(v: float | None, digits: int = 1) -> str:
+        return "—" if v is None else f"{v:.{digits}f}"
+
+    for r in etf_rows:
+        lines.append(
+            f"| {r['tv']} | {r['name']} | {fmt(r.get('close'), 2)} "
+            f"| {fmt(r.get('ret_6m'))} | {fmt(r.get('ret_1y'))} "
+            f"| {fmt(r.get('dist_200ma'))} | {fmt(r.get('range_pos'), 0)} |"
+        )
+    lines.append("")
+    return lines
+
+
 def write_report(market: str, date_key: str, thermo: dict, index_name: str,
                  results_by_model: dict[str, list[dict]],
                  tops: dict[str, list[dict]], stats: dict,
                  exchange_hints: dict[str, str | None],
-                 reports_root: Path) -> Path:
+                 reports_root: Path,
+                 etf_rows: list[dict] | None = None) -> Path:
     """Write ``report_<market>.md`` and the per-model watchlists.
 
     ``exchange_hints`` maps yfinance ticker -> ``info["exchange"]``.
@@ -122,6 +143,8 @@ def write_report(market: str, date_key: str, thermo: dict, index_name: str,
     for model in MODELS:
         lines += _model_section(model, tops.get(model, []),
                                 results_by_model.get(model, []))
+    if etf_rows:
+        lines += _etf_section(etf_rows)
     lines.append("## 掃描統計")
     lines.append("")
     lines.append(f"- 掃描範圍：{stats.get('universe', 0)} 檔")
@@ -140,6 +163,8 @@ def write_report(market: str, date_key: str, thermo: dict, index_name: str,
     log.info("report written: %s", report_path)
 
     _write_watchlists(market, tops, exchange_hints, out_dir)
+    if etf_rows:
+        write_etf_watchlist(market, etf_rows, out_dir)
     return report_path
 
 
@@ -153,3 +178,11 @@ def _write_watchlists(market: str, tops: dict[str, list[dict]],
         symbols = [tv_symbol(r, exchange_hints.get(r["symbol"])) for r in top]
         path.write_text("\n".join(symbols) + ("\n" if symbols else ""), encoding="utf-8")
     log.info("watchlists written under %s", wl_dir)
+
+
+def write_etf_watchlist(market: str, etf_rows: list[dict], out_dir: Path) -> None:
+    wl_dir = out_dir / "watchlists"
+    wl_dir.mkdir(parents=True, exist_ok=True)
+    path = wl_dir / f"etf_{market}.txt"
+    symbols = [r["tv"] for r in etf_rows]
+    path.write_text("\n".join(symbols) + ("\n" if symbols else ""), encoding="utf-8")

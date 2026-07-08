@@ -1,0 +1,9 @@
+# ETF 專區（台股）— yfinance ticker|TradingView symbol|名稱
+0050.TW|TWSE:0050|元大台灣50
+006208.TW|TWSE:006208|富邦台50
+0056.TW|TWSE:0056|元大高股息
+00878.TW|TWSE:00878|國泰永續高股息
+00713.TW|TWSE:00713|元大台灣高息低波
+00929.TW|TWSE:00929|復華台灣科技優息
+0052.TW|TWSE:0052|富邦科技
+00692.TW|TWSE:00692|富邦公司治理

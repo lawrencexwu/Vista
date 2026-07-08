@@ -20,6 +20,7 @@ from pathlib import Path
 
 from . import MODELS
 from .data import download_index, download_prices, fetch_fundamentals
+from .etf import compute_etf_rows
 from .models import MarketContext, close_series, score_all
 from .rank import breadth_above_200ma, rs_percentiles, six_month_returns, top5
 from .report import write_report
@@ -82,6 +83,12 @@ def run(market: str, limit: int | None, date_key: str) -> Path:
     tops = {m: top5(results_by_model[m], m) for m in MODELS}
     thermo = compute_thermometer(index_prices, breadth)
 
+    try:
+        etf_rows = compute_etf_rows(market, date_key)
+    except Exception:  # noqa: BLE001 - the ETF corner must never kill the batch
+        log.exception("ETF section failed — omitted from the report")
+        etf_rows = []
+
     stats = {
         "universe": len(symbols),
         "scored": scored,
@@ -100,6 +107,7 @@ def run(market: str, limit: int | None, date_key: str) -> Path:
         stats=stats,
         exchange_hints=exchange_hints,
         reports_root=REPORTS_ROOT,
+        etf_rows=etf_rows,
     )
 
 
