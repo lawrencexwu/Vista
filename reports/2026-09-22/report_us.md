@@ -2,17 +2,17 @@
 
 ## 市場溫度計
 
-- **馬克斯鐘擺**：77 / 100（0 = 極度悲觀，100 = 極度樂觀）
+- **馬克斯鐘擺**：76 / 100（0 = 極度悲觀，100 = 極度樂觀）
 - **科斯托蘭尼雞蛋階段**：上升 A2 相隨
 - 基準指數：S&P 500（^GSPC）
 
 | 分項 | 原始值 | 0–100 分 |
 |---|---:|---:|
 | 趨勢熱度（指數距 200MA 百分位） | 0.08 | 61 |
-| 動能熱度（126 日報酬百分位） | 0.19 | 96 |
+| 動能熱度（126 日報酬百分位） | 0.18 | 94 |
 | 區間位置（52 週） | 97.64 | 98 |
-| 市場寬度（站上 200MA 比例） | 53.64 | 54 |
-| 波動自滿度（21 日波動率反轉） | 0.11 | 77 |
+| 市場寬度（站上 200MA 比例） | 51.42 | 51 |
+| 波動自滿度（21 日波動率反轉） | 0.10 | 78 |
 
 > 這是情境參考，不是買賣訊號。
 
@@ -24,11 +24,11 @@
 
 | 排名 | 代號 | 名稱 | 得分 | % | 關鍵指標 | 未過條目 | 資料缺漏 |
 |---:|---|---|---|---:|---|---|---|
-| 1 | VICI | VICI Properties Inc. | 7/7 | 100% | P/E×P/B=8.5 | — | — |
-| 2 | TROW | T. Rowe Price Group, Inc. | 7/7 | 100% | P/E×P/B=21.3 | — | — |
-| 3 | LEN | Lennar Corporation | 6/7 | 86% | P/E×P/B=12.9 | G6 | — |
-| 4 | PDD | PDD Holdings Inc. | 6/7 | 86% | P/E×P/B=14.3 | G5 | — |
-| 5 | LULU | lululemon athletica inc. | 6/7 | 86% | P/E×P/B=19.7 | G5 | — |
+| 1 | VICI | VICI Properties Inc. | 7/7 | 100% | P/E×P/B=8.4 | — | — |
+| 2 | TROW | T. Rowe Price Group, Inc. | 7/7 | 100% | P/E×P/B=21.1 | — | — |
+| 3 | LEN | Lennar Corporation | 6/7 | 86% | P/E×P/B=14.6 | G6 | — |
+| 4 | PDD | PDD Holdings Inc. | 6/7 | 86% | P/E×P/B=14.7 | G5 | — |
+| 5 | LULU | lululemon athletica inc. | 6/7 | 86% | P/E×P/B=20.6 | G5 | — |
 
 通過統計：掃描 497 檔，平均通過率 50%，滿分 2 檔。
 
@@ -52,11 +52,11 @@
 
 | 排名 | 代號 | 名稱 | 得分 | % | 關鍵指標 | 未過條目 | 資料缺漏 |
 |---:|---|---|---|---:|---|---|---|
-| 1 | ACGL | Arch Capital Group Ltd. | 5/5 | 100% | PEG=0.17｜快速成長 | — | — |
+| 1 | ACGL | Arch Capital Group Ltd. | 5/5 | 100% | PEG=0.16｜快速成長 | — | — |
 | 2 | EG | Everest Group, Ltd. | 5/5 | 100% | PEG=0.22｜快速成長 | — | — |
 | 3 | HIG | The Hartford Insurance Group, I | 5/5 | 100% | PEG=0.26｜快速成長 | — | — |
-| 4 | AIZ | Assurant, Inc. | 5/5 | 100% | PEG=0.27｜快速成長 | — | — |
-| 5 | TRV | The Travelers Companies, Inc. | 5/5 | 100% | PEG=0.31｜快速成長 | — | — |
+| 4 | AIZ | Assurant, Inc. | 5/5 | 100% | PEG=0.26｜快速成長 | — | — |
+| 5 | TRV | The Travelers Companies, Inc. | 5/5 | 100% | PEG=0.30｜快速成長 | — | — |
 
 通過統計：掃描 497 檔，平均通過率 41%，滿分 19 檔。
 
@@ -67,12 +67,12 @@
 | 排名 | 代號 | 名稱 | 得分 | % | 關鍵指標 | 未過條目 | 資料缺漏 |
 |---:|---|---|---|---:|---|---|---|
 | 1 | PTC | PTC Inc. | 2/2 | 100% | EY=10.0%｜ROIC=716.7% | — | — |
-| 2 | HON | Honeywell International Inc. | 2/2 | 100% | EY=12.7%｜ROIC=122.2% | — | — |
+| 2 | HON | Honeywell International Inc. | 2/2 | 100% | EY=12.4%｜ROIC=122.2% | — | — |
 | 3 | BKNG | Booking Holdings Inc. Common St | 1/2 | 50% | EY=8.0%｜ROIC=310.5% | M1 | — |
 | 4 | MTCH | Match Group, Inc. | 1/2 | 50% | EY=7.9%｜ROIC=188.3% | M1 | — |
 | 5 | SOLV | Solventum Corporation | 2/2 | 100% | EY=9.8%｜ROIC=107.2% | — | — |
 
-通過統計：掃描 497 檔，平均通過率 35%，滿分 42 檔。
+通過統計：掃描 497 檔，平均通過率 35%，滿分 40 檔。
 
 ### 歐尼爾 CANSLIM
 
@@ -80,13 +80,13 @@
 
 | 排名 | 代號 | 名稱 | 得分 | % | 關鍵指標 | 未過條目 | 資料缺漏 |
 |---:|---|---|---|---:|---|---|---|
-| 1 | PAYC | Paycom Software, Inc. | 7/7 | 100% | RS=97 | — | — |
-| 2 | MPC | Marathon Petroleum Corporation | 7/7 | 100% | RS=96 | — | — |
-| 3 | VLO | Valero Energy Corporation | 7/7 | 100% | RS=96 | — | — |
-| 4 | PSX | Phillips 66 | 7/7 | 100% | RS=95 | — | — |
-| 5 | QRVO | Qorvo, Inc. | 7/7 | 100% | RS=94 | — | — |
+| 1 | AMD | Advanced Micro Devices, Inc. | 7/7 | 100% | RS=100 | — | — |
+| 2 | PAYC | Paycom Software, Inc. | 7/7 | 100% | RS=96 | — | — |
+| 3 | MPC | Marathon Petroleum Corporation | 7/7 | 100% | RS=96 | — | — |
+| 4 | VLO | Valero Energy Corporation | 7/7 | 100% | RS=95 | — | — |
+| 5 | QRVO | Qorvo, Inc. | 7/7 | 100% | RS=93 | — | — |
 
-通過統計：掃描 497 檔，平均通過率 54%，滿分 13 檔。
+通過統計：掃描 497 檔，平均通過率 54%，滿分 16 檔。
 
 ### 米奈爾維尼 趨勢樣板
 
@@ -95,8 +95,8 @@
 | 排名 | 代號 | 名稱 | 得分 | % | 關鍵指標 | 未過條目 | 資料缺漏 |
 |---:|---|---|---|---:|---|---|---|
 | 1 | MRNA | Moderna, Inc. | 8/8 | 100% | RS=100 | — | — |
-| 2 | HPE | Hewlett Packard Enterprise Comp | 8/8 | 100% | RS=100 | — | — |
-| 3 | AMD | Advanced Micro Devices, Inc. | 8/8 | 100% | RS=99 | — | — |
+| 2 | AMD | Advanced Micro Devices, Inc. | 8/8 | 100% | RS=100 | — | — |
+| 3 | HPE | Hewlett Packard Enterprise Comp | 8/8 | 100% | RS=99 | — | — |
 | 4 | CRWD | CrowdStrike Holdings, Inc. | 8/8 | 100% | RS=98 | — | — |
 | 5 | PANW | Palo Alto Networks, Inc. | 8/8 | 100% | RS=98 | — | — |
 
@@ -108,10 +108,10 @@
 
 | 排名 | 代號 | 名稱 | 得分 | % | 關鍵指標 | 未過條目 | 資料缺漏 |
 |---:|---|---|---|---:|---|---|---|
-| 1 | DPZ | Domino's Pizza Inc | 5/6 | 83% | P/B=-2.46 | — | S2 |
-| 2 | LEN | Lennar Corporation | 5/6 | 83% | P/B=0.87 | S4 | — |
-| 3 | VICI | VICI Properties Inc. | 5/6 | 83% | P/B=0.91 | S2 | — |
-| 4 | LKQ | LKQ Corporation | 5/6 | 83% | P/B=0.91 | S2 | — |
+| 1 | DPZ | Domino's Pizza Inc | 5/6 | 83% | P/B=-2.47 | — | S2 |
+| 2 | VICI | VICI Properties Inc. | 5/6 | 83% | P/B=0.91 | S2 | — |
+| 3 | LEN | Lennar Corporation | 5/6 | 83% | P/B=0.93 | S4 | — |
+| 4 | LKQ | LKQ Corporation | 5/6 | 83% | P/B=0.93 | S2 | — |
 | 5 | EG | Everest Group, Ltd. | 5/6 | 83% | P/B=0.93 | S6 | — |
 
 通過統計：掃描 497 檔，平均通過率 40%，滿分 0 檔。
@@ -122,13 +122,13 @@
 
 | 排名 | 代號 | 名稱 | 得分 | % | 關鍵指標 | 未過條目 | 資料缺漏 |
 |---:|---|---|---|---:|---|---|---|
-| 1 | TTD | The Trade Desk, Inc. | 6/6 | 100% | 自高點-90.0% | — | — |
-| 2 | IT | Gartner, Inc. | 6/6 | 100% | 自高點-66.3% | — | — |
-| 3 | EPAM | EPAM Systems, Inc. | 6/6 | 100% | 自高點-63.8% | — | — |
-| 4 | INTU | Intuit Inc. | 6/6 | 100% | 自高點-62.0% | — | — |
-| 5 | ADBE | Adobe Inc. | 6/6 | 100% | 自高點-60.8% | — | — |
+| 1 | LULU | lululemon athletica inc. | 6/6 | 100% | 自高點-79.7% | — | — |
+| 2 | IT | Gartner, Inc. | 6/6 | 100% | 自高點-67.6% | — | — |
+| 3 | EPAM | EPAM Systems, Inc. | 6/6 | 100% | 自高點-64.5% | — | — |
+| 4 | INTU | Intuit Inc. | 6/6 | 100% | 自高點-63.4% | — | — |
+| 5 | ADBE | Adobe Inc. | 6/6 | 100% | 自高點-62.5% | — | — |
 
-通過統計：掃描 497 檔，平均通過率 53%，滿分 9 檔。
+通過統計：掃描 497 檔，平均通過率 53%，滿分 11 檔。
 
 ## ETF 專區（向柏格致敬）
 
@@ -136,16 +136,16 @@
 
 | 代號 | 名稱 | 收盤 | 6月 % | 1年 % | 距200MA % | 52週位置 % |
 |---|---|---:|---:|---:|---:|---:|
-| AMEX:VTI | Vanguard Total Stock Market | 375.43 | 16.1 | 16.8 | 6.6 | 88 |
-| AMEX:VOO | Vanguard S&P 500 | 701.78 | 16.4 | 17.2 | 6.9 | 90 |
-| AMEX:SPY | SPDR S&P 500 | 761.69 | 16.3 | 17.1 | 6.9 | 90 |
-| NASDAQ:QQQ | Invesco QQQ (Nasdaq 100) | 721.45 | 21.9 | 22.9 | 9.0 | 87 |
-| AMEX:VT | Vanguard Total World | 158.55 | 14.6 | 18.0 | 6.1 | 88 |
-| AMEX:SCHD | Schwab US Dividend Equity | 33.68 | 11.9 | 27.1 | 8.0 | 84 |
-| AMEX:VTV | Vanguard Value | 221.25 | 13.8 | 22.0 | 6.9 | 87 |
-| AMEX:VUG | Vanguard Growth | 88.75 | 19.0 | 12.9 | 7.4 | 93 |
-| AMEX:IWM | iShares Russell 2000 | 284.10 | 15.3 | 20.1 | 3.9 | 74 |
-| AMEX:DIA | SPDR Dow Jones | 515.88 | 12.9 | 13.8 | 3.7 | 73 |
+| AMEX:VTI | Vanguard Total Stock Market | 381.10 | 19.7 | 17.8 | 8.1 | 96 |
+| AMEX:VOO | Vanguard S&P 500 | 712.78 | 19.9 | 18.4 | 8.5 | 98 |
+| AMEX:SPY | SPDR S&P 500 | 773.50 | 19.9 | 18.4 | 8.5 | 98 |
+| NASDAQ:QQQ | Invesco QQQ (Nasdaq 100) | 741.47 | 27.8 | 25.3 | 12.1 | 98 |
+| AMEX:VT | Vanguard Total World | 160.89 | 18.8 | 19.1 | 7.6 | 96 |
+| AMEX:SCHD | Schwab US Dividend Equity | 33.72 | 12.8 | 27.4 | 8.0 | 84 |
+| AMEX:VTV | Vanguard Value | 221.94 | 15.3 | 21.9 | 7.1 | 88 |
+| AMEX:VUG | Vanguard Growth | 91.02 | 24.3 | 15.2 | 10.0 | 100 |
+| AMEX:IWM | iShares Russell 2000 | 285.58 | 18.5 | 17.8 | 4.3 | 76 |
+| AMEX:DIA | SPDR Dow Jones | 519.78 | 14.8 | 14.3 | 4.4 | 77 |
 
 ## 掃描統計
 
